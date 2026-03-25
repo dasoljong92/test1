@@ -172,6 +172,31 @@ def dashboard(df: pd.DataFrame) -> None:
     daily = daily.rename(columns={"day": "날짜"})
     st.line_chart(daily.set_index("날짜")[["cost", "revenue"]])
 
+    st.subheader("채널별 일별 성과")
+    ch_daily = (
+        df.assign(day=df["date"].dt.date)
+        .groupby(["day", "channel"], as_index=False)
+        .agg({"cost": "sum", "revenue": "sum", "clicks": "sum", "conversions": "sum"})
+    )
+    ch_daily["roas"] = ch_daily["revenue"] / ch_daily["cost"].replace(0, pd.NA)
+    metric_daily = st.selectbox(
+        "표시 지표",
+        ["비용", "매출", "클릭", "전환", "ROAS"],
+        key="channel_daily_metric",
+        help="채널마다 일자별 합계(ROAS는 해당 일·채널 매출÷비용)",
+    )
+    metric_col = {
+        "비용": "cost",
+        "매출": "revenue",
+        "클릭": "clicks",
+        "전환": "conversions",
+        "ROAS": "roas",
+    }[metric_daily]
+    wide_ch = ch_daily.pivot(index="day", columns="channel", values=metric_col).sort_index()
+    wide_ch = wide_ch.fillna(0)
+    st.line_chart(wide_ch)
+    st.caption("범례: 각 선이 채널입니다. 사이드바 채널·기간 필터가 그대로 적용됩니다.")
+
     st.subheader("채널별 비용·매출")
     by_ch = df.groupby("channel", as_index=False).agg({"cost": "sum", "revenue": "sum"})
     st.bar_chart(by_ch.set_index("channel"))
