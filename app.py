@@ -164,11 +164,12 @@ def dashboard(df: pd.DataFrame) -> None:
 
     st.subheader("일별 추이")
     daily = (
-        df.groupby(df["date"].dt.date, as_index=False)
+        df.assign(day=df["date"].dt.date)
+        .groupby("day", as_index=False)
         .agg({"cost": "sum", "revenue": "sum", "clicks": "sum", "conversions": "sum"})
-        .sort_values("date")
+        .sort_values("day")
     )
-    daily = daily.rename(columns={"date": "날짜"})
+    daily = daily.rename(columns={"day": "날짜"})
     st.line_chart(daily.set_index("날짜")[["cost", "revenue"]])
 
     st.subheader("채널별 비용·매출")
