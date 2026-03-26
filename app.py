@@ -197,6 +197,54 @@ def dashboard(df: pd.DataFrame) -> None:
     st.line_chart(wide_ch)
     st.caption("범례: 각 선이 채널입니다. 사이드바 채널·기간 필터가 그대로 적용됩니다.")
 
+    st.subheader("Meta Ads 일별 성과")
+    meta = df[df["channel"] == "Meta Ads"].copy()
+    if meta.empty:
+        st.info(
+            "Meta Ads 데이터가 없습니다. 사이드바 **채널**에 Meta Ads를 포함하고, 기간·캠페인 필터를 확인해 주세요."
+        )
+    else:
+        meta_daily = (
+            meta.assign(day=meta["date"].dt.date)
+            .groupby("day", as_index=False)
+            .agg(
+                {
+                    "impressions": "sum",
+                    "clicks": "sum",
+                    "cost": "sum",
+                    "conversions": "sum",
+                    "revenue": "sum",
+                }
+            )
+            .sort_values("day")
+        )
+        meta_daily["roas"] = meta_daily["revenue"] / meta_daily["cost"].replace(0, pd.NA)
+        meta_daily["ctr_pct"] = (
+            meta_daily["clicks"] / meta_daily["impressions"].replace(0, pd.NA) * 100
+        )
+        meta_metric = st.selectbox(
+            "Meta Ads 지표",
+            ["비용 & 매출", "비용", "매출", "클릭", "전환", "ROAS", "CTR (%)"],
+            key="meta_ads_daily_metric",
+            help="해당 기간·캠페인 필터 안에서 Meta Ads만 일별 합산합니다.",
+        )
+        mdx = meta_daily.set_index("day")
+        if meta_metric == "비용 & 매출":
+            st.line_chart(mdx[["cost", "revenue"]])
+        elif meta_metric == "ROAS":
+            st.line_chart(mdx[["roas"]].fillna(0))
+        elif meta_metric == "CTR (%)":
+            st.line_chart(mdx[["ctr_pct"]].fillna(0))
+        else:
+            _mc = {
+                "비용": "cost",
+                "매출": "revenue",
+                "클릭": "clicks",
+                "전환": "conversions",
+            }[meta_metric]
+            st.line_chart(mdx[[_mc]])
+        st.caption("캠페인 단위로 보고 싶으면 사이드바에서 Meta Ads 소속 캠페인만 선택하세요.")
+
     st.subheader("채널별 비용·매출")
     by_ch = df.groupby("channel", as_index=False).agg({"cost": "sum", "revenue": "sum"})
     st.bar_chart(by_ch.set_index("channel"))
